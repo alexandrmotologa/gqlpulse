@@ -1,0 +1,107 @@
+type User {
+  id: ID!
+  username: String!
+  email: String!
+  displayName: String!
+  bio: String
+  role: String!
+  legacyToken: String
+  posts(limit: Int): [Post!]!
+  orders: [Order!]!
+  reviews: [Review!]!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  slug: String!
+  content: String!
+  publishedAt: String!
+  author: User!
+  comments(limit: Int): [Comment!]!
+  tags: [String!]!
+}
+
+type Comment {
+  id: ID!
+  text: String!
+  createdAt: String!
+  author: User!
+  post: Post!
+}
+
+type Product {
+  id: ID!
+  name: String!
+  description: String!
+  price: Float!
+  sku: String!
+  stock: Int!
+  category: Category!
+  reviews: [Review!]!
+}
+
+type Category {
+  id: ID!
+  name: String!
+  slug: String!
+  products(limit: Int): [Product!]!
+}
+
+type Review {
+  id: ID!
+  rating: Int!
+  comment: String!
+  user: User!
+  product: Product!
+  createdAt: String!
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+type OrderItem {
+  id: ID!
+  product: Product!
+  quantity: Int!
+  unitPrice: Float!
+}
+
+type Order {
+  id: ID!
+  orderNumber: String!
+  total: Float!
+  status: OrderStatus!
+  items: [OrderItem!]!
+  user: User!
+  createdAt: String!
+}
+
+type Query {
+  users(first: Int): [User!]!
+  user(id: ID!): User
+  posts(first: Int): [Post!]!
+  post(id: ID!): Post
+  products(first: Int): [Product!]!
+  product(id: ID!): Product
+  categories: [Category!]!
+  orders: [Order!]!
+  serverHealth: String!
+}
+
+input CreatePostInput {
+  authorId: ID!
+  title: String!
+  content: String!
+  tags: [String!]
+}
+
+type Mutation {
+  createPost(input: CreatePostInput!): Post!
+  addComment(postId: ID!, authorId: ID!, text: String!): Comment!
+}

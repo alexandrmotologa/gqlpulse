@@ -1,0 +1,27 @@
+{
+  "name": "@gqlpulse/cli",
+  "version": "1.0.0",
+  "description": "Command-line interface for GQLPulse reverse proxy, query complexity linter, and schema evolution studio",
+  "main": "dist/index.js",
+  "bin": {
+    "gqlpulse": "dist/index.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@gqlpulse/core": "^1.0.0",
+    "@gqlpulse/demo-server": "^1.0.0",
+    "@gqlpulse/proxy": "^1.0.0",
+    "chalk": "^4.1.2",
+    "commander": "^13.1.0",
+    "graphql": "^16.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}

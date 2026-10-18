@@ -1,0 +1,38 @@
+{
+  "name": "gqlpulse-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time GraphQL query complexity linter, resolver N+1 cascade profiler, and schema breaking change studio",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:core": "npm run build --workspace=@gqlpulse/core",
+    "build:proxy": "npm run build --workspace=@gqlpulse/proxy",
+    "build:studio": "npm run build --workspace=@gqlpulse/studio",
+    "build:demo": "npm run build --workspace=@gqlpulse/demo-server",
+    "build:cli": "npm run build --workspace=@gqlpulse/cli",
+    "dev:studio": "npm run dev --workspace=@gqlpulse/studio",
+    "demo": "node packages/cli/dist/index.js demo",
+    "test": "node --test packages/core/dist/**/*.test.js"
+  },
+  "keywords": [
+    "graphql",
+    "observability",
+    "performance",
+    "api-security",
+    "graphql-ast",
+    "dataloader",
+    "schema-diff",
+    "reverse-proxy",
+    "complexity-analysis",
+    "n-plus-one-detector",
+    "typescript",
+    "nodejs",
+    "react",
+    "developer-tools"
+  ],
+  "author": "Alexandr Motologa",
+  "license": "MIT"
+}

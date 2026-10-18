@@ -1,0 +1,20 @@
+{
+  "name": "@gqlpulse/core",
+  "version": "1.0.0",
+  "description": "Core GraphQL query complexity linter, resolver N+1 cascade profiler, and schema diff engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "graphql": "^16.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}

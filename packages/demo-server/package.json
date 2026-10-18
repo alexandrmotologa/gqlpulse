@@ -1,0 +1,22 @@
+{
+  "name": "@gqlpulse/demo-server",
+  "version": "1.0.0",
+  "description": "Realistic GraphQL demo backend with intentional N+1 resolvers and schema evolution fixtures",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@gqlpulse/core": "^1.0.0",
+    "dataloader": "^2.2.3",
+    "graphql": "^16.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}
