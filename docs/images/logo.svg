@@ -1,36 +1,206 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="gqlpulse-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#06b6d4" />
-      <stop offset="50%" stop-color="#3b82f6" />
-      <stop offset="100%" stop-color="#e11d48" />
+    <clipPath id="squircle-clip">
+      <rect x="24" y="24" width="976" height="976" rx="220" />
+    </clipPath>
+
+    <!-- Electric Cyan Pulse Gradient -->
+    <linearGradient id="cyan-pulse" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f5ff"/>
+      <stop offset="100%" stop-color="#0284c7"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="blur" />
-      <feMerge>
-        <feMergeNode in="blur" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
+
+    <!-- GraphQL Rose Accent Gradient -->
+    <linearGradient id="gql-rose" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb7185"/>
+      <stop offset="50%" stop-color="#e11d48"/>
+      <stop offset="100%" stop-color="#be123c"/>
+    </linearGradient>
+
+    <!-- Ear Acoustic Receiver Gradient -->
+    <linearGradient id="ear-cyan" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="70%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#00f5ff"/>
+    </linearGradient>
+
+    <!-- Obsidian Body Gradients -->
+    <linearGradient id="facet-light" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+
+    <linearGradient id="facet-mid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+
+    <linearGradient id="facet-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <linearGradient id="facet-deep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#070a12"/>
+    </linearGradient>
+
+    <filter id="subtle-shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0b0f19" flood-opacity="0.14" />
     </filter>
   </defs>
 
-  <!-- Background Squircle -->
-  <rect x="5" y="5" width="90" height="90" rx="22" fill="#0b0f17" stroke="#1e293b" stroke-width="2" />
+  <!-- 1. Luxury White Squircle Container -->
+  <rect x="24" y="24" width="976" height="976" rx="220" fill="#ffffff" stroke="#e2e8f0" stroke-width="6" />
 
-  <!-- GraphQL Hexagonal Base Outline -->
-  <polygon points="50,18 78,34 78,66 50,82 22,66 22,34" fill="none" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="2 2" />
+  <g clip-path="url(#squircle-clip)">
+    <g transform="translate(512, 512)" filter="url(#subtle-shadow)">
 
-  <!-- Pulse Wave Path -->
-  <path d="M 22,50 L 36,50 L 42,32 L 48,68 L 54,42 L 58,54 L 64,50 L 78,50" 
-        fill="none" 
-        stroke="url(#gqlpulse-grad)" 
-        stroke-width="3.5" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"
-        filter="url(#glow)" />
+      <!-- 2. Hexagonal Architectural Gateway Frame -->
+      <polygon points="
+        0,-390
+        338,-195
+        338,195
+        0,390
+        -338,195
+        -338,-195
+      " fill="none" stroke="#0f172a" stroke-width="36" stroke-linejoin="round" />
 
-  <!-- Pulse Node Dots -->
-  <circle cx="42" cy="32" r="3" fill="#06b6d4" />
-  <circle cx="48" cy="68" r="3" fill="#e11d48" />
-  <circle cx="54" cy="42" r="2.5" fill="#3b82f6" />
+      <!-- Inner Dashed Telemetry Hexagon -->
+      <polygon points="
+        0,-352
+        305,-176
+        305,176
+        0,352
+        -305,176
+        -305,-176
+      " fill="none" stroke="#00f5ff" stroke-width="4" opacity="0.45" stroke-dasharray="16, 12" />
+
+      <!-- Corner Node Connectors (GraphQL AST graph topology) -->
+      <circle cx="0" cy="-390" r="10" fill="#00f5ff"/>
+      <circle cx="338" cy="-195" r="10" fill="#00f5ff"/>
+      <circle cx="338" cy="195" r="10" fill="#00f5ff"/>
+      <circle cx="0" cy="390" r="10" fill="#e11d48"/>
+      <circle cx="-338" cy="195" r="10" fill="#00f5ff"/>
+      <circle cx="-338" cy="-195" r="10" fill="#00f5ff"/>
+
+      <!-- 3. Watertight Solid Base Silhouette (Prevents background vertex leaks) -->
+      <path d="
+        M 0,-210
+        L 60,-225 L 140,-330 L 175,-270 L 195,-170 L 260,-90 L 305,30 L 290,130 L 230,225 L 150,210 L 110,275 L 0,320
+        L -110,275 L -150,210 L -230,225 L -290,130 L -305,30 L -260,-90 L -195,-170 L -175,-270 L -140,-330 L -60,-225
+        Z
+      " fill="#070a12" />
+
+      <!-- 4. Acoustic Ear Assemblies (Ultrasonic Echolocators) -->
+      <!-- Left Outer Ear -->
+      <polygon points="-60,-225 -140,-330 -175,-270 -130,-195" fill="url(#facet-mid)" />
+      <!-- Left Inner Ear Cavity (Cyan Echolocation Receiver) -->
+      <polygon points="-80,-215 -135,-310 -155,-260 -115,-190" fill="url(#ear-cyan)" opacity="0.85" />
+      <!-- Left Ear Ridge Facet -->
+      <polygon points="-60,-225 -115,-190 -85,-165 -45,-185" fill="url(#facet-dark)" />
+
+      <!-- Right Outer Ear -->
+      <polygon points="60,-225 140,-330 175,-270 130,-195" fill="url(#facet-light)" />
+      <!-- Right Inner Ear Cavity (Cyan Echolocation Receiver) -->
+      <polygon points="80,-215 135,-310 155,-260 115,-190" fill="url(#ear-cyan)" opacity="0.95" />
+      <!-- Right Ear Ridge Facet -->
+      <polygon points="60,-225 115,-190 85,-165 45,-185" fill="url(#facet-mid)" />
+
+      <!-- Crown & Cranial Vault -->
+      <polygon points="0,-210 -60,-225 -45,-185 0,-165" fill="url(#facet-dark)" />
+      <polygon points="0,-210 60,-225 45,-185 0,-165" fill="url(#facet-mid)" />
+      <polygon points="0,-165 -45,-185 -75,-140 0,-115" fill="url(#facet-mid)" />
+      <polygon points="0,-165 45,-185 75,-140 0,-115" fill="url(#facet-light)" />
+
+      <!-- 5. Folded Geometric Wings (Flanking Scapulars) -->
+      <!-- Left Wing - Upper Strut -->
+      <polygon points="-195,-170 -260,-90 -210,-70 -150,-125" fill="url(#facet-dark)" />
+      <!-- Left Wing - Mid Facet -->
+      <polygon points="-260,-90 -305,30 -240,40 -210,-70" fill="url(#facet-deep)" />
+      <!-- Left Wing - Lower Scallop 1 -->
+      <polygon points="-305,30 -290,130 -225,120 -240,40" fill="url(#facet-dark)" />
+      <!-- Left Wing - Lower Scallop 2 -->
+      <polygon points="-290,130 -230,225 -175,160 -225,120" fill="url(#facet-mid)" />
+      <!-- Left Wing - Inner Wing Fold -->
+      <polygon points="-225,120 -175,160 -150,210 -115,140 -160,80" fill="url(#facet-dark)" />
+
+      <!-- Right Wing - Upper Strut -->
+      <polygon points="195,-170 260,-90 210,-70 150,-125" fill="url(#facet-light)" />
+      <!-- Right Wing - Mid Facet -->
+      <polygon points="260,-90 305,30 240,40 210,-70" fill="url(#facet-mid)" />
+      <!-- Right Wing - Lower Scallop 1 -->
+      <polygon points="305,30 290,130 225,120 240,40" fill="url(#facet-light)" />
+      <!-- Right Wing - Lower Scallop 2 -->
+      <polygon points="290,130 230,225 175,160 225,120" fill="url(#facet-mid)" />
+      <!-- Right Wing - Inner Wing Fold -->
+      <polygon points="225,120 175,160 150,210 115,140 160,80" fill="url(#facet-light)" />
+
+      <!-- 6. Facial Geometry & Brow Architecture -->
+      <!-- Left Brow -->
+      <polygon points="0,-115 -75,-140 -110,-100 -50,-80" fill="url(#facet-dark)" />
+      <!-- Right Brow -->
+      <polygon points="0,-115 75,-140 110,-100 50,-80" fill="url(#facet-light)" />
+      <!-- Central Brow Crest -->
+      <polygon points="0,-115 -50,-80 0,-65" fill="url(#facet-mid)" />
+      <polygon points="0,-115 50,-80 0,-65" fill="url(#facet-light)" />
+
+      <!-- 7. Predatory Optics (Sharp Almond Polygonal Sockets & Electric Cyan Gaze) -->
+      <!-- Left Eye Socket -->
+      <polygon points="-50,-80 -105,-95 -75,-65" fill="#070a12" />
+      <!-- Left Eye Glow -->
+      <polygon points="-55,-80 -95,-90 -72,-70" fill="url(#cyan-pulse)" />
+      <polygon points="-65,-81 -85,-86 -72,-74" fill="#ffffff" />
+
+      <!-- Right Eye Socket -->
+      <polygon points="50,-80 105,-95 75,-65" fill="#070a12" />
+      <!-- Right Eye Glow -->
+      <polygon points="55,-80 95,-90 72,-70" fill="url(#cyan-pulse)" />
+      <polygon points="65,-81 85,-86 72,-74" fill="#ffffff" />
+
+      <!-- 8. Sonar Nose-Leaf (Acoustic Beam Director) -->
+      <polygon points="0,-65 -30,-45 0,-15" fill="url(#facet-dark)" />
+      <polygon points="0,-65 30,-45 0,-15" fill="url(#facet-light)" />
+      <polygon points="0,-15 -25,10 0,30" fill="url(#facet-dark)" />
+      <polygon points="0,-15 25,10 0,30" fill="url(#facet-light)" />
+
+      <!-- Lateral Muzzle / Whisker Shields (Refined Titanium Slate, No Buck Teeth) -->
+      <polygon points="-30,-45 -75,-65 -60,-10 -25,10" fill="#475569" />
+      <polygon points="30,-45 75,-65 60,-10 25,10" fill="#64748b" />
+      <polygon points="-25,10 -60,-10 -40,35 0,30" fill="#334155" />
+      <polygon points="25,10 60,-10 40,35 0,30" fill="#475569" />
+
+      <!-- 9. Chest Armor & GraphQL Pulse Core -->
+      <!-- Pectoral Armor Plates -->
+      <polygon points="0,30 -40,35 -90,70 -45,115 0,80" fill="url(#facet-dark)" />
+      <polygon points="0,30 40,35 90,70 45,115 0,80" fill="url(#facet-light)" />
+
+      <!-- Outer Acoustic Pulse Rings across Chest -->
+      <path d="M -80,120 Q 0,165 80,120" fill="none" stroke="#00f5ff" stroke-width="3" opacity="0.6" stroke-dasharray="6, 6" />
+      <path d="M -60,145 Q 0,185 60,145" fill="none" stroke="#00f5ff" stroke-width="3" opacity="0.4" stroke-dasharray="6, 6" />
+
+      <!-- Central GraphQL Diamond Nexus Core -->
+      <polygon points="0,80 -32,115 0,150 32,115" fill="url(#gql-rose)" stroke="#ffffff" stroke-width="2" />
+      <polygon points="0,92 -18,115 0,138 18,115" fill="#ffffff" opacity="0.85" />
+      <circle cx="0" cy="115" r="5" fill="#00f5ff" />
+
+      <!-- Lower Abdominal Sternum & Tail Plate -->
+      <polygon points="0,150 -45,115 -115,140 -70,210 0,185" fill="url(#facet-dark)" />
+      <polygon points="0,150 45,115 115,140 70,210 0,185" fill="url(#facet-mid)" />
+      <polygon points="0,185 -70,210 -110,275 0,250" fill="url(#facet-deep)" />
+      <polygon points="0,185 70,210 110,275 0,250" fill="url(#facet-dark)" />
+      <polygon points="0,250 -110,275 0,320" fill="url(#facet-deep)" />
+      <polygon points="0,250 110,275 0,320" fill="url(#facet-dark)" />
+
+      <!-- 10. Peripheral Cyan Accents on Wing Joints (AST Nodes) -->
+      <circle cx="-260" cy="-90" r="5" fill="#00f5ff" />
+      <circle cx="260" cy="-90" r="5" fill="#00f5ff" />
+      <circle cx="-305" cy="30" r="6" fill="#00f5ff" />
+      <circle cx="305" cy="30" r="6" fill="#00f5ff" />
+      <circle cx="-230" cy="225" r="5" fill="#00f5ff" />
+      <circle cx="230" cy="225" r="5" fill="#00f5ff" />
+      <circle cx="0" cy="320" r="6" fill="#e11d48" />
+
+    </g>
+  </g>
 </svg>

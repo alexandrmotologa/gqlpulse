@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.svg" alt="GQLPulse Logo" width="96" height="96" />
+  <img src="docs/images/logo.png?raw=true" alt="GQLPulse Logo" width="130" style="border-radius: 24px;" />
 </p>
 
 <h1 align="center">GQLPulse</h1>
@@ -92,6 +92,13 @@ Press `Ctrl+K` or `Cmd+K` anywhere in the studio to switch tabs, trigger test qu
 
 <p align="center">
   <img src="docs/images/gqlpulse_command_palette.png" alt="GQLPulse Command Palette" width="100%" />
+</p>
+
+### 7. Mobile & Responsive Layout
+The studio adapts dynamically to handheld devices, tablets, and wide monitors with fluid touch navigation and collapsable telemetry drawers.
+
+<p align="center">
+  <img src="docs/images/gqlpulse_mobile.png" alt="GQLPulse Mobile Responsive View" width="45%" style="border-radius: 16px; border: 1px solid #1e293b;" />
 </p>
 
 ---

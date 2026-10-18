@@ -51,7 +51,7 @@ export const TraceDrawer: React.FC<TraceDrawerProps> = ({
   return (
     <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
       {/* Drawer Header */}
-      <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {isBlocked ? (
             <span className="p-1.5 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20">
@@ -90,9 +90,9 @@ export const TraceDrawer: React.FC<TraceDrawerProps> = ({
       </div>
 
       {/* Drawer Body */}
-      <div className="p-6 space-y-6 overflow-y-auto flex-1">
+      <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
         {/* Metric Badges */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
           <div className="bg-slate-950 border border-slate-800/80 rounded-lg p-3">
             <span className="text-[10px] uppercase font-mono text-slate-400">Total Latency</span>
             <div className="text-base font-bold font-mono text-slate-100 mt-1">

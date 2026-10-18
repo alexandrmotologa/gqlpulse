@@ -128,7 +128,7 @@ type Query {
       {/* Diff Result Cards */}
       {diffResult && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4 font-mono">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono">
             <div className="bg-rose-950/20 border border-rose-800/40 rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-rose-300 font-semibold uppercase">Breaking Changes</span>

@@ -61,22 +61,22 @@ export const DataLoaderSimulatorModal: React.FC<DataLoaderSimulatorModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Sparkles className="w-5 h-5 text-cyan-400" />
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
+          <div className="flex items-center space-x-2.5 sm:space-x-3">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100 flex items-center space-x-2">
-                <span>DataLoader Performance Benchmarking Simulator</span>
-                <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-medium">
-                  Side-by-Side Dual Run
+              <h2 className="text-xs sm:text-base font-bold text-slate-100 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span>DataLoader Benchmarking Simulator</span>
+                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-medium">
+                  Dual Run
                 </span>
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
                 Simulates real-world database roundtrips comparing unbatched resolvers against batch DataLoader execution
               </p>
             </div>
