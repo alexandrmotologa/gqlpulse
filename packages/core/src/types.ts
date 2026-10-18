@@ -118,6 +118,46 @@ export interface SchemaDiffResult {
   timestamp: number;
 }
 
+export interface MaskingRule {
+  fieldPattern: string; // e.g. 'email', 'legacyToken', 'password'
+  strategy: 'REDACT' | 'PARTIAL_EMAIL' | 'HASH' | 'NULL';
+}
+
+export interface APQConfig {
+  enabled: boolean;
+  strictSafelist: boolean;
+}
+
+export interface ClientTrafficImpact {
+  schemaPath: string; // e.g. 'User.legacyToken'
+  changeCode: string;
+  totalHitsInSession: number;
+  distinctClientsCount: number;
+  sampleClients: string[];
+  sampleOperations: string[];
+  severity: 'HIGH_IMPACT' | 'LOW_IMPACT' | 'NO_IMPACT';
+}
+
+export interface ComparisonSimulationResult {
+  query: string;
+  unbatched: {
+    durationMs: number;
+    dbQueriesEstimated: number;
+    spansCount: number;
+    nPlusOneCascades: number;
+    spans: ResolverSpan[];
+  };
+  batched: {
+    durationMs: number;
+    dbQueriesEstimated: number;
+    spansCount: number;
+    nPlusOneCascades: number;
+    spans: ResolverSpan[];
+  };
+  latencyReductionPercent: number;
+  dbQueriesSavedPercent: number;
+}
+
 export interface DeprecatedFieldUsage {
   fieldPath: string; // e.g. 'User.oldBio'
   reason: string;
@@ -125,3 +165,4 @@ export interface DeprecatedFieldUsage {
   lastSeenTimestamp: number;
   clients: string[];
 }
+

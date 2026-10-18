@@ -64,6 +64,8 @@ export interface QueryComplexityConfig {
   directiveName: string;
   blockIntrospection: boolean;
   dryRun: boolean;
+  apq?: APQConfig;
+  maskingRules?: MaskingRule[];
 }
 
 export interface SchemaDiffItem {
@@ -75,6 +77,16 @@ export interface SchemaDiffItem {
   newValue?: string;
 }
 
+export interface ClientTrafficImpact {
+  schemaPath: string;
+  changeCode: string;
+  totalHitsInSession: number;
+  distinctClientsCount: number;
+  sampleClients: string[];
+  sampleOperations: string[];
+  severity: 'HIGH_IMPACT' | 'LOW_IMPACT' | 'NO_IMPACT';
+}
+
 export interface SchemaDiffResult {
   items: SchemaDiffItem[];
   breakingCount: number;
@@ -82,6 +94,37 @@ export interface SchemaDiffResult {
   safeCount: number;
   hasBreakingChanges: boolean;
   timestamp: number;
+  impacts?: ClientTrafficImpact[];
+}
+
+export interface ComparisonSimulationResult {
+  query: string;
+  unbatched: {
+    durationMs: number;
+    dbQueriesEstimated: number;
+    spansCount: number;
+    nPlusOneCascades: number;
+    spans: ResolverSpan[];
+  };
+  batched: {
+    durationMs: number;
+    dbQueriesEstimated: number;
+    spansCount: number;
+    nPlusOneCascades: number;
+    spans: ResolverSpan[];
+  };
+  latencyReductionPercent: number;
+  dbQueriesSavedPercent: number;
+}
+
+export interface MaskingRule {
+  fieldPattern: string;
+  strategy: 'REDACT' | 'PARTIAL_EMAIL' | 'HASH' | 'NULL';
+}
+
+export interface APQConfig {
+  enabled: boolean;
+  strictSafelist: boolean;
 }
 
 export interface DeprecatedFieldUsage {

@@ -1,4 +1,4 @@
-import { QueryComplexityConfig, DEFAULT_COMPLEXITY_CONFIG } from '@gqlpulse/core';
+import { QueryComplexityConfig, DEFAULT_COMPLEXITY_CONFIG, MaskingRule, APQConfig } from '@gqlpulse/core';
 
 export interface GQLPulseProxyConfig {
   /** Target GraphQL backend URL (default: http://localhost:4001/graphql) */
@@ -15,6 +15,10 @@ export interface GQLPulseProxyConfig {
   rateLimitWindowMs: number;
   /** Max complexity budget allowed per client per sliding window (default: 10000) */
   rateLimitMaxBudget: number;
+  /** Automatic Persisted Queries configuration */
+  apq: APQConfig;
+  /** Field-level sensitive data masking rules */
+  maskingRules: MaskingRule[];
   /** Complexity and depth rules */
   complexity: QueryComplexityConfig;
 }
@@ -27,6 +31,13 @@ export const DEFAULT_PROXY_CONFIG: GQLPulseProxyConfig = {
   enableStudio: true,
   rateLimitWindowMs: 60000,
   rateLimitMaxBudget: 10000,
+  apq: {
+    enabled: true,
+    strictSafelist: false,
+  },
+  maskingRules: [
+    { fieldPattern: 'legacyToken', strategy: 'REDACT' },
+  ],
   complexity: {
     ...DEFAULT_COMPLEXITY_CONFIG,
     maxComplexity: 250,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, ShieldAlert, Cpu, GitBranch, Settings, Layers, Flame, Zap } from 'lucide-react';
+import { Activity, ShieldAlert, Cpu, GitBranch, Settings, Layers, Flame, Zap, Search } from 'lucide-react';
 import { ProxyMetrics } from '../types.js';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   metrics: ProxyMetrics | null;
   isConnected: boolean;
   totalTraces: number;
+  onOpenCommandPalette?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   metrics,
   isConnected,
   totalTraces,
+  onOpenCommandPalette,
 }) => {
   const tabs = [
     { id: 'monitor', label: 'Live Monitor', icon: Activity, badge: totalTraces > 0 ? totalTraces : undefined },
@@ -79,6 +81,20 @@ export const Header: React.FC<HeaderProps> = ({
                 <ShieldAlert className="w-3.5 h-3.5" />
                 <span>Blocked: {metrics.blockedQueries}</span>
               </div>
+            )}
+
+            {onOpenCommandPalette && (
+              <button
+                onClick={onOpenCommandPalette}
+                className="flex items-center space-x-2 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 px-2.5 py-1.5 rounded-lg text-xs font-mono text-slate-300 transition"
+                title="Search commands and quick actions (Ctrl+K / Cmd+K)"
+              >
+                <Search className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden lg:inline text-slate-400 text-[11px]">Command Palette</span>
+                <kbd className="text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded text-cyan-300 font-semibold">
+                  ⌘K
+                </kbd>
+              </button>
             )}
           </div>
         </div>

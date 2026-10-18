@@ -4,6 +4,7 @@ import { runProxyCommand } from './commands/proxy.js';
 import { runLintCommand } from './commands/lint.js';
 import { runDiffCommand } from './commands/diff.js';
 import { runDemoCommand } from './commands/demo.js';
+import { runCheckCommand } from './commands/check.js';
 
 const program = new Command();
 
@@ -39,6 +40,15 @@ program
   .argument('<old-schema>', 'Path to baseline schema.graphql')
   .argument('<new-schema>', 'Path to candidate schema.graphql')
   .action(runDiffCommand);
+
+program
+  .command('check')
+  .description('CI/CD Schema check with GitHub Actions markdown comment support')
+  .argument('<schema-file>', 'Path to candidate schema file')
+  .option('-a, --against <baseline-file>', 'Baseline schema file to compare against', 'packages/demo-server/dist/schema-v1.graphql')
+  .option('--github-comment', 'Format output as GitHub Actions Markdown for PR comments')
+  .option('--json', 'Output report as JSON')
+  .action(runCheckCommand);
 
 program
   .command('demo')

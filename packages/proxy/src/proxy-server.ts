@@ -6,12 +6,17 @@ import {
   ResolverProfiler,
   SchemaDiffEngine,
   DeprecationTracker,
+  SchemaImpactAnalyzer,
+  ResponseDataMasker,
   WaterfallTrace,
   ResolverSpan,
   QueryComplexityConfig,
+  ComparisonSimulationResult,
 } from '@gqlpulse/core';
 import { GQLPulseProxyConfig, DEFAULT_PROXY_CONFIG } from './config.js';
 import { ComplexityRateLimiter } from './rate-limiter.js';
+import { formatPrometheusMetrics } from './prometheus.js';
+import { PersistedQueryManager } from './apq.js';
 import { buildSchema, GraphQLSchema } from 'graphql';
 
 export interface ProxyMetrics {
@@ -34,7 +39,10 @@ export class GQLPulseProxyServer {
   private profiler: ResolverProfiler;
   private diffEngine: SchemaDiffEngine;
   private deprecationTracker: DeprecationTracker;
+  private impactAnalyzer: SchemaImpactAnalyzer;
   private rateLimiter: ComplexityRateLimiter;
+  private apqManager: PersistedQueryManager;
+  private masker: ResponseDataMasker;
   private schema?: GraphQLSchema;
 
   private traces: WaterfallTrace[] = [];
@@ -59,6 +67,8 @@ export class GQLPulseProxyServer {
     this.config = {
       ...DEFAULT_PROXY_CONFIG,
       ...customConfig,
+      apq: { ...DEFAULT_PROXY_CONFIG.apq, ...(customConfig.apq || {}) },
+      maskingRules: customConfig.maskingRules || DEFAULT_PROXY_CONFIG.maskingRules,
       complexity: { ...DEFAULT_PROXY_CONFIG.complexity, ...(customConfig.complexity || {}) },
     };
 
@@ -70,7 +80,10 @@ export class GQLPulseProxyServer {
     this.profiler = new ResolverProfiler();
     this.diffEngine = new SchemaDiffEngine();
     this.deprecationTracker = new DeprecationTracker(this.schema);
+    this.impactAnalyzer = new SchemaImpactAnalyzer();
     this.rateLimiter = new ComplexityRateLimiter(this.config.rateLimitWindowMs, this.config.rateLimitMaxBudget);
+    this.apqManager = new PersistedQueryManager(this.config.apq.enabled, this.config.apq.strictSafelist);
+    this.masker = new ResponseDataMasker(this.config.maskingRules);
   }
 
   public setSchema(schemaOrStr: string | GraphQLSchema): void {
@@ -88,6 +101,7 @@ export class GQLPulseProxyServer {
       this.server.listen(this.config.port, () => {
         console.log(`[gqlpulse] Reverse Proxy active on http://localhost:${this.config.port}${this.config.graphqlPath}`);
         console.log(`[gqlpulse] Studio Dashboard available on http://localhost:${this.config.port}${this.config.studioPath}`);
+        console.log(`[gqlpulse] Prometheus Metrics available on http://localhost:${this.config.port}/metrics`);
         console.log(`[gqlpulse] Forwarding queries to upstream backend: ${this.config.targetUrl}`);
         resolve(this.server!);
       });
@@ -108,7 +122,7 @@ export class GQLPulseProxyServer {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-gqlpulse-mode');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-gqlpulse-mode');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -119,25 +133,33 @@ export class GQLPulseProxyServer {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
 
-    // 1. SSE Stream endpoint
+    // 1. Prometheus /metrics endpoint
+    if (pathname === '/metrics' && req.method === 'GET') {
+      this.metrics.uptimeSeconds = Math.round((Date.now() - this.startedAt) / 1000);
+      res.writeHead(200, { 'Content-Type': 'text/plain; version=0.0.4; charset=utf-8' });
+      res.end(formatPrometheusMetrics(this.metrics));
+      return;
+    }
+
+    // 2. SSE Stream endpoint
     if (pathname === '/events') {
       this.handleSseStream(req, res);
       return;
     }
 
-    // 2. REST API endpoints
+    // 3. REST API endpoints
     if (pathname.startsWith('/api/')) {
       this.handleApiRoute(pathname, req, res, url);
       return;
     }
 
-    // 3. GraphQL Proxy endpoint
+    // 4. GraphQL Proxy endpoint
     if (pathname === this.config.graphqlPath) {
       this.handleGraphQLProxy(req, res, url);
       return;
     }
 
-    // 4. Studio web dashboard & static assets
+    // 5. Studio web dashboard & static assets
     if (
       pathname === this.config.studioPath ||
       pathname === '/' ||
@@ -146,6 +168,7 @@ export class GQLPulseProxyServer {
       pathname.endsWith('.js') ||
       pathname.endsWith('.css') ||
       pathname.endsWith('.svg') ||
+      pathname.endsWith('.png') ||
       pathname.endsWith('.ico')
     ) {
       this.handleStudioStatic(pathname, req, res);
@@ -189,10 +212,15 @@ export class GQLPulseProxyServer {
 
     req.on('end', async () => {
       const startTime = performance.now();
-      const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+      const clientId = this.rateLimiter.extractClientId(req);
 
       try {
-        let payload: { query?: string; variables?: Record<string, unknown>; operationName?: string } = {};
+        let payload: {
+          query?: string;
+          variables?: Record<string, unknown>;
+          operationName?: string;
+          extensions?: { persistedQuery?: { sha256Hash?: string; version?: number } };
+        } = {};
 
         if (req.method === 'POST') {
           payload = body ? JSON.parse(body) : {};
@@ -201,7 +229,45 @@ export class GQLPulseProxyServer {
             query: url.searchParams.get('query') || undefined,
             variables: url.searchParams.get('variables') ? JSON.parse(url.searchParams.get('variables')!) : undefined,
             operationName: url.searchParams.get('operationName') || undefined,
+            extensions: url.searchParams.get('extensions') ? JSON.parse(url.searchParams.get('extensions')!) : undefined,
           };
+        }
+
+        // --- STEP 1: AUTOMATIC PERSISTED QUERIES (APQ) PROCESSING ---
+        const apqHash = payload.extensions?.persistedQuery?.sha256Hash;
+        if (apqHash) {
+          const apqResult = this.apqManager.processAPQ(apqHash, payload.query);
+          if (apqResult.status === 'NOT_FOUND') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(
+              JSON.stringify({
+                errors: [
+                  {
+                    message: 'PersistedQueryNotFound',
+                    extensions: { code: 'PERSISTED_QUERY_NOT_FOUND' },
+                  },
+                ],
+              })
+            );
+            return;
+          }
+
+          if (apqResult.status === 'NOT_ALLOWED' || apqResult.status === 'INVALID_HASH') {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(
+              JSON.stringify({
+                errors: [
+                  {
+                    message: apqResult.errorMessage || 'Query rejected by persisted query policy',
+                    extensions: { code: 'PERSISTED_QUERY_VIOLATION' },
+                  },
+                ],
+              })
+            );
+            return;
+          }
+
+          payload.query = apqResult.query;
         }
 
         if (!payload.query) {
@@ -210,17 +276,22 @@ export class GQLPulseProxyServer {
           return;
         }
 
-        // --- STEP 1: PRE-EXECUTION AST COMPLEXITY & DEPTH LINTING (<0.5ms) ---
+        // --- STEP 2: PRE-EXECUTION AST COMPLEXITY & DEPTH LINTING (<0.5ms) ---
         const analysis = this.calculator.analyze(payload.query, payload.variables);
 
         // Check rate limit budget
-        const rateLimitResult = this.rateLimiter.checkAndRecord(clientIp, analysis.complexity);
+        const rateLimitResult = this.rateLimiter.checkAndRecord(clientId, analysis.complexity);
 
-        // Track deprecated fields requested in this query
+        // Attach rate limit headers
+        res.setHeader('X-RateLimit-Limit-Complexity', String(rateLimitResult.maxBudget));
+        res.setHeader('X-RateLimit-Remaining-Complexity', String(rateLimitResult.remainingBudget));
+        res.setHeader('X-RateLimit-Reset-Ms', String(rateLimitResult.resetInMs));
+
+        // Track deprecated fields
         if (this.schema) {
           try {
             const { parse } = await import('graphql');
-            this.deprecationTracker.inspectQuery(parse(payload.query), clientIp);
+            this.deprecationTracker.inspectQuery(parse(payload.query), clientId);
           } catch {
             // ignore syntax errors already caught
           }
@@ -260,7 +331,7 @@ export class GQLPulseProxyServer {
             depth: analysis.depth,
             status: 'BLOCKED',
             errorMessage,
-            clientIp,
+            clientIp: clientId,
           };
 
           this.recordTrace(blockedTrace);
@@ -288,20 +359,24 @@ export class GQLPulseProxyServer {
           return;
         }
 
-        // --- STEP 2: FORWARD TO TARGET GRAPHQL BACKEND ---
+        // --- STEP 3: FORWARD TO TARGET BACKEND ---
         const targetUrlObj = new URL(this.config.targetUrl);
+        const outPayloadStr = JSON.stringify(payload);
+        const forwardHeaders: Record<string, any> = {
+          ...req.headers,
+          host: targetUrlObj.host,
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(outPayloadStr),
+          'x-forwarded-for': clientId,
+        };
+
         const proxyReq = http.request(
           {
             hostname: targetUrlObj.hostname,
             port: targetUrlObj.port || (targetUrlObj.protocol === 'https:' ? 443 : 80),
             path: targetUrlObj.pathname + targetUrlObj.search,
             method: req.method,
-            headers: {
-              ...req.headers,
-              host: targetUrlObj.host,
-              'content-type': 'application/json',
-              'x-forwarded-for': clientIp,
-            },
+            headers: forwardHeaders,
           },
           (proxyRes) => {
             let upstreamBody = '';
@@ -324,11 +399,15 @@ export class GQLPulseProxyServer {
               try {
                 parsedUpstream = JSON.parse(upstreamBody);
 
+                // --- SENSITIVE DATA MASKING ---
+                if (parsedUpstream.data && this.config.maskingRules.length > 0) {
+                  parsedUpstream.data = this.masker.mask(parsedUpstream.data);
+                }
+
                 // Extract spans if present in extensions
                 if (parsedUpstream?.extensions?.gqlpulse?.spans) {
                   spans = parsedUpstream.extensions.gqlpulse.spans;
                 } else if (parsedUpstream?.extensions?.tracing?.execution?.resolvers) {
-                  // Apollo Tracing format
                   const resolvers = parsedUpstream.extensions.tracing.execution.resolvers;
                   spans = resolvers.map((r: any) => ({
                     path: r.path,
@@ -349,7 +428,7 @@ export class GQLPulseProxyServer {
                   this.metrics.nPlusOneAlertCount += nPlusOneAlerts.length;
                 }
               } catch {
-                // Non-JSON response from upstream
+                // Non-JSON response
               }
 
               const trace: WaterfallTrace = {
@@ -364,13 +443,13 @@ export class GQLPulseProxyServer {
                 complexity: analysis.complexity,
                 depth: analysis.depth,
                 status: 'SUCCESS',
-                clientIp,
+                clientIp: clientId,
               };
 
               this.recordTrace(trace);
               this.broadcastEvent('QUERY_EXECUTED', trace);
 
-              // Inject GQLPulse analysis summary into response extensions
+              // Inject GQLPulse telemetry into response extensions
               if (parsedUpstream && typeof parsedUpstream === 'object') {
                 parsedUpstream.extensions = {
                   ...(parsedUpstream.extensions || {}),
@@ -412,7 +491,8 @@ export class GQLPulseProxyServer {
           );
         });
 
-        proxyReq.write(body);
+        // Forward updated body (with resolved query if APQ was used)
+        proxyReq.write(outPayloadStr);
         proxyReq.end();
       } catch (err: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -472,9 +552,10 @@ export class GQLPulseProxyServer {
       req.on('end', () => {
         try {
           const { oldSchema, newSchema } = JSON.parse(body);
-          const result = this.diffEngine.diff(oldSchema, newSchema);
+          const diff = this.diffEngine.diff(oldSchema, newSchema);
+          const impacts = this.impactAnalyzer.analyzeImpact(diff, this.traces);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(result));
+          res.end(JSON.stringify({ ...diff, impacts }));
         } catch (err: any) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
@@ -483,19 +564,103 @@ export class GQLPulseProxyServer {
       return;
     }
 
+    // DataLoader Simulator comparison endpoint
+    if (pathname === '/api/simulate-dataloader' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', async () => {
+        try {
+          const { query, variables } = JSON.parse(body);
+
+          // 1. Run unbatched
+          const start1 = performance.now();
+          const res1 = await fetch(this.config.targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, variables }),
+          });
+          const dur1 = performance.now() - start1;
+          const json1: any = await res1.json();
+          const spans1: ResolverSpan[] = json1.extensions?.gqlpulse?.spans || [];
+          const prof1 = this.profiler.analyzeSpans(spans1);
+
+          // 2. Run batched with DataLoader mode
+          const start2 = performance.now();
+          const res2 = await fetch(this.config.targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-gqlpulse-mode': 'dataloader' },
+            body: JSON.stringify({ query, variables }),
+          });
+          const dur2 = performance.now() - start2;
+          const json2: any = await res2.json();
+          const spans2: ResolverSpan[] = json2.extensions?.gqlpulse?.spans || [];
+          const prof2 = this.profiler.analyzeSpans(spans2);
+
+          const comparison: ComparisonSimulationResult = {
+            query,
+            unbatched: {
+              durationMs: Math.round(dur1 * 10) / 10,
+              dbQueriesEstimated: spans1.length > 0 ? spans1.length : 1,
+              spansCount: spans1.length,
+              nPlusOneCascades: prof1.alerts.length,
+              spans: prof1.spansWithSelfTime,
+            },
+            batched: {
+              durationMs: Math.round(dur2 * 10) / 10,
+              dbQueriesEstimated: prof2.alerts.length === 0 ? Math.max(1, Math.round(spans2.length * 0.2)) : 1,
+              spansCount: spans2.length,
+              nPlusOneCascades: prof2.alerts.length,
+              spans: prof2.spansWithSelfTime,
+            },
+            latencyReductionPercent: Math.max(0, Math.round(((dur1 - dur2) / dur1) * 100)),
+            dbQueriesSavedPercent: Math.max(0, Math.round(((spans1.length - spans2.length) / Math.max(1, spans1.length)) * 100)),
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(comparison));
+        } catch (err: any) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    if (pathname === '/api/apq' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(this.apqManager.getStats()));
+      return;
+    }
+
     if (pathname === '/api/rules') {
       if (req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(this.config.complexity));
+        res.end(
+          JSON.stringify({
+            ...this.config.complexity,
+            apq: this.config.apq,
+            maskingRules: this.config.maskingRules,
+          })
+        );
       } else if (req.method === 'PUT') {
         let body = '';
         req.on('data', (c) => (body += c));
         req.on('end', () => {
           try {
-            const updated: Partial<QueryComplexityConfig> = JSON.parse(body);
+            const updated: any = JSON.parse(body);
+            if (updated.apq) {
+              this.config.apq = { ...this.config.apq, ...updated.apq };
+              this.apqManager.updateConfig(this.config.apq.enabled, this.config.apq.strictSafelist);
+            }
+            if (updated.maskingRules) {
+              this.config.maskingRules = updated.maskingRules;
+              this.masker.updateRules(this.config.maskingRules);
+            }
+
             this.config.complexity = { ...this.config.complexity, ...updated };
             this.calculator.updateConfig(this.config.complexity);
-            this.broadcastEvent('RULES_UPDATED', this.config.complexity);
+            this.broadcastEvent('RULES_UPDATED', this.config);
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(this.config.complexity));
           } catch (err: any) {
@@ -523,7 +688,6 @@ export class GQLPulseProxyServer {
   }
 
   private handleStudioStatic(pathname: string, req: http.IncomingMessage, res: http.ServerResponse): void {
-    // Look for studio dist folder
     const possiblePaths = [
       path.join(process.cwd(), 'packages', 'studio', 'dist'),
       path.join(__dirname, '..', '..', 'studio', 'dist'),
@@ -545,13 +709,13 @@ export class GQLPulseProxyServer {
           '.svg': 'image/svg+xml',
           '.json': 'application/json',
           '.png': 'image/png',
+          '.ico': 'image/x-icon',
         };
         res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
         fs.createReadStream(filePath).pipe(res);
         return;
       }
 
-      // SPA fallback to index.html
       const indexPath = path.join(studioDist, 'index.html');
       if (fs.existsSync(indexPath)) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -560,7 +724,6 @@ export class GQLPulseProxyServer {
       }
     }
 
-    // Integrated standalone fallback UI if studio static assets haven't been built yet
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(`<!DOCTYPE html>
 <html lang="en" class="dark">
@@ -587,10 +750,9 @@ export class GQLPulseProxyServer {
       <h2 class="text-lg font-semibold text-slate-200">Studio Build Notice</h2>
       <p class="text-sm text-slate-400 mt-2">
         The integrated React 19 Studio dashboard is ready to build via <code class="text-cyan-400 font-mono">npm run build:studio</code>.
-        Once built, this screen automatically transitions to the full multi-tab interactive telemetry workbench.
       </p>
       <div class="mt-6 flex space-x-3">
-        <a href="/api/metrics" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-md text-slate-200">View /api/metrics</a>
+        <a href="/metrics" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-md text-slate-200">View /metrics (Prometheus)</a>
         <a href="/api/traces" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sm font-medium rounded-md text-slate-200">View /api/traces</a>
       </div>
     </div>

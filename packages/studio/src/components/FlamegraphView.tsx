@@ -5,9 +5,14 @@ import { WaterfallTrace, ResolverSpan, NPlusOneAlert } from '../types.js';
 interface FlamegraphViewProps {
   traces: WaterfallTrace[];
   onOpenDataLoaderModal: (alert: NPlusOneAlert) => void;
+  onOpenSimulatorModal?: (query?: string) => void;
 }
 
-export const FlamegraphView: React.FC<FlamegraphViewProps> = ({ traces, onOpenDataLoaderModal }) => {
+export const FlamegraphView: React.FC<FlamegraphViewProps> = ({
+  traces,
+  onOpenDataLoaderModal,
+  onOpenSimulatorModal,
+}) => {
   // Find traces that have resolver spans
   const tracesWithSpans = traces.filter((t) => t.spans && t.spans.length > 0);
   const [selectedTraceId, setSelectedTraceId] = useState<string>(
@@ -60,20 +65,32 @@ export const FlamegraphView: React.FC<FlamegraphViewProps> = ({ traces, onOpenDa
           </div>
         </div>
 
-        {/* Trace Selector Dropdown */}
-        <div className="flex items-center space-x-2">
-          <span className="text-xs text-slate-400 font-mono">Trace:</span>
-          <select
-            value={selectedTrace.id}
-            onChange={(e) => setSelectedTraceId(e.target.value)}
-            className="bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-500"
-          >
-            {traces.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.operationName || 'Query'} ({t.totalDurationMs}ms, {t.spans?.length || 0} spans) - {t.id.slice(-6)}
-              </option>
-            ))}
-          </select>
+        {/* Trace Selector & Actions */}
+        <div className="flex items-center space-x-3">
+          {onOpenSimulatorModal && (
+            <button
+              onClick={() => onOpenSimulatorModal(selectedTrace.query)}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-medium transition"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Simulate DataLoader (Before vs After)</span>
+            </button>
+          )}
+
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-slate-400 font-mono">Trace:</span>
+            <select
+              value={selectedTrace.id}
+              onChange={(e) => setSelectedTraceId(e.target.value)}
+              className="bg-slate-950 border border-slate-800 text-slate-200 text-xs font-mono rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-500"
+            >
+              {traces.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.operationName || 'Query'} ({t.totalDurationMs}ms, {t.spans?.length || 0} spans) - {t.id.slice(-6)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

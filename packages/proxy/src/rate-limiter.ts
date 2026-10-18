@@ -1,5 +1,15 @@
+import http from 'node:http';
+
 export interface RateLimitEntry {
   timestamps: { time: number; cost: number }[];
+}
+
+export interface RateLimitCheckResult {
+  allowed: boolean;
+  currentTotal: number;
+  maxBudget: number;
+  remainingBudget: number;
+  resetInMs: number;
 }
 
 export class ComplexityRateLimiter {
@@ -22,7 +32,25 @@ export class ComplexityRateLimiter {
     this.maxBudget = maxBudget;
   }
 
-  public checkAndRecord(clientId: string, complexityCost: number): { allowed: boolean; currentTotal: number; maxBudget: number; resetInMs: number } {
+  public extractClientId(req: http.IncomingMessage): string {
+    const apiKey = (req.headers['x-api-key'] as string) || '';
+    if (apiKey) return `apikey:${apiKey}`;
+
+    const auth = (req.headers['authorization'] as string) || '';
+    if (auth.startsWith('Bearer ')) {
+      // Use token suffix or hash to identify client
+      return `token:${auth.substring(7, 27)}`;
+    }
+
+    const forwarded = (req.headers['x-forwarded-for'] as string) || '';
+    if (forwarded) {
+      return `ip:${forwarded.split(',')[0].trim()}`;
+    }
+
+    return `ip:${req.socket.remoteAddress || '127.0.0.1'}`;
+  }
+
+  public checkAndRecord(clientId: string, complexityCost: number): RateLimitCheckResult {
     const now = Date.now();
     const windowStart = now - this.windowMs;
 
@@ -44,15 +72,18 @@ export class ComplexityRateLimiter {
         allowed: false,
         currentTotal,
         maxBudget: this.maxBudget,
+        remainingBudget: Math.max(0, this.maxBudget - currentTotal),
         resetInMs,
       };
     }
 
     entry.timestamps.push({ time: now, cost: complexityCost });
+    const newTotal = currentTotal + complexityCost;
     return {
       allowed: true,
-      currentTotal: currentTotal + complexityCost,
+      currentTotal: newTotal,
       maxBudget: this.maxBudget,
+      remainingBudget: Math.max(0, this.maxBudget - newTotal),
       resetInMs: this.windowMs,
     };
   }

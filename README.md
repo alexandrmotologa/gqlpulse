@@ -26,12 +26,12 @@
 
 ## Overview
 
-Engineering teams operating GraphQL backends (Apollo Server, GraphQL Yoga, NestJS, Mercurius) routinely encounter two severe reliability bottlenecks:
+Engineering teams running GraphQL backends (Apollo Server, GraphQL Yoga, NestJS, Mercurius) routinely encounter two severe reliability bottlenecks:
 
-1. **GraphQL Denial of Service (DoS)**: Malicious or unbounded client queries with deep recursion (such as `user -> posts -> comments -> author -> posts`) that lock up node event loops and exhaust memory before reaching the database.
-2. **Hidden N+1 Resolver Cascades**: Nested resolvers executing thousands of sequential database roundtrips due to missing or misconfigured DataLoader batching.
+1. **GraphQL Denial of Service (DoS)**: Unbounded client queries with deep recursion (such as `user -> posts -> comments -> author -> posts`) that lock up node event loops and exhaust memory before reaching the database.
+2. **Hidden N+1 Resolver Cascades**: Nested resolvers executing dozens or hundreds of sequential database roundtrips due to missing or misconfigured DataLoader batching.
 
-**GQLPulse** resolves both issues by deploying as a lightweight reverse proxy and developer studio. It parses and validates incoming GraphQL ASTs in less than 0.5 milliseconds, rejects abusive queries before database execution, measures resolver execution waterfalls, flags N+1 cascades, and tracks schema breaking changes in real time.
+**GQLPulse** resolves both issues by deploying as a transparent reverse proxy and developer studio. It parses and validates incoming GraphQL ASTs in less than 0.5 milliseconds, rejects abusive queries before database execution, measures resolver execution waterfalls, flags N+1 cascades, verifies DataLoader performance improvements side by side, and tracks schema breaking changes in real time.
 
 ---
 
@@ -40,9 +40,13 @@ Engineering teams operating GraphQL backends (Apollo Server, GraphQL Yoga, NestJ
 - **Pre-Execution Query Linter (<0.5ms)**: Intercepts queries prior to execution. Computes AST node counts, tree depth, and cumulative complexity weights incorporating pagination arguments (`first`, `limit`, `last`).
 - **Cyclic Recursion Blocker**: Traverses graph branches to detect and terminate circular reference attacks before downstream servers are touched.
 - **Resolver Waterfall Flamegraphs**: Extracts execution timings across resolver hierarchies, separates self-time from child durations, and flags bottlenecks.
-- **Automated DataLoader Fixes**: Identifies repeated unbatched resolver calls and outputs copyable TypeScript DataLoader definitions and refactored resolver code.
-- **Schema Evolution Studio**: Diffs revisions of `schema.graphql`, identifies breaking modifications for existing mobile and web clients, and tracks real-time traffic to `@deprecated` fields.
-- **Zero-Dependency Core**: AST analysis and schema diffing run on standard `graphql-js` with minimal memory footprint.
+- **Automated Persisted Queries (APQ)**: Full Apollo APQ protocol support with SHA-256 caching and Strict Safelist mode to prevent ad-hoc arbitrary query execution.
+- **Dual DataLoader Simulator**: Side-by-side benchmarking modal comparing unbatched resolvers against batch DataLoader execution, displaying exact latency and database roundtrip reductions.
+- **Sensitive Field Masking**: Zero-dependency response payload masking supporting `REDACT`, `PARTIAL_EMAIL`, `HASH`, and `NULL` strategies for PII and auth tokens.
+- **Production Prometheus Exporter**: Native `/metrics` endpoint exposing query totals, rejection rates, N+1 counts, and latency percentiles for Prometheus and Grafana.
+- **Client Traffic Impact Analysis**: Schema diffing correlated with real query telemetry in proxy memory, identifying which client applications and operations are broken by proposed schema changes.
+- **CI/CD PR Check Bot**: CLI `check` command generating formatted GitHub Actions markdown tables with severity alerts for pull requests.
+- **Command Palette & Hotkeys**: Instant navigation and query execution via `Ctrl+K` or `Cmd+K`.
 
 ---
 
@@ -62,18 +66,32 @@ Drill down into individual queries to inspect resolver offsets, self-time distri
   <img src="docs/images/gqlpulse_flamegraph.png" alt="GQLPulse Flamegraph" width="100%" />
 </p>
 
-### 3. Pre-Flight Complexity Linter
-Test candidate queries against scoring rules, examine field-level cost multipliers, and simulate query depth constraints before deployment.
+### 3. Dual DataLoader Performance Simulator
+Compare unbatched resolver execution against batched DataLoader fetching side by side. Displays latency reduction percentages and database roundtrips saved.
 
 <p align="center">
-  <img src="docs/images/gqlpulse_linter.png" alt="GQLPulse Linter Sandbox" width="100%" />
+  <img src="docs/images/gqlpulse_dataloader_simulator.png" alt="GQLPulse DataLoader Simulator" width="100%" />
 </p>
 
-### 4. Schema Evolution & Breaking Change Diff
-Compare baseline and candidate schema revisions to verify backward compatibility.
+### 4. Schema Evolution & Client Traffic Impact
+Compare baseline and candidate schema revisions to verify backward compatibility. Cross-references proposed breaking changes with real query telemetry to identify affected clients.
 
 <p align="center">
   <img src="docs/images/gqlpulse_schema_diff.png" alt="GQLPulse Schema Diff" width="100%" />
+</p>
+
+### 5. Security & Hot-Reload Rules Config
+Configure maximum complexity budgets, nesting depths, APQ strict safelists, and sensitive field masking rules with zero-downtime hot reloading.
+
+<p align="center">
+  <img src="docs/images/gqlpulse_rules.png" alt="GQLPulse Security Rules" width="100%" />
+</p>
+
+### 6. Command Palette
+Press `Ctrl+K` or `Cmd+K` anywhere in the studio to switch tabs, trigger test queries, or run simulations.
+
+<p align="center">
+  <img src="docs/images/gqlpulse_command_palette.png" alt="GQLPulse Command Palette" width="100%" />
 </p>
 
 ---
@@ -103,6 +121,7 @@ Once running:
 - Open the Studio dashboard: `http://localhost:4000/studio`
 - Send client queries to: `http://localhost:4000/graphql`
 - Target backend runs at: `http://localhost:4001/graphql`
+- Prometheus metrics available at: `http://localhost:4000/metrics`
 
 ---
 
@@ -118,6 +137,15 @@ npx gqlpulse proxy \
   --schema ./schema.graphql \
   --max-complexity 250 \
   --max-depth 8
+```
+
+### CI/CD Pull Request Schema Check
+Verify schema compatibility during GitHub Actions builds. Outputs formatted markdown comments:
+
+```bash
+npx gqlpulse check ./candidate-schema.graphql \
+  --against ./main-schema.graphql \
+  --github-comment
 ```
 
 ### Lint a Query in CI/CD
@@ -175,17 +203,29 @@ console.log(result.isBlocked);    // Boolean enforcement flag
 console.log(result.durationMs);   // Linter parse duration in ms
 ```
 
-### Schema Breaking Change Detection
+### Response Field Masking
 
 ```typescript
-import { SchemaDiffEngine } from '@gqlpulse/core';
+import { ResponseDataMasker } from '@gqlpulse/core';
+
+const masker = new ResponseDataMasker([
+  { fieldPattern: 'legacyToken', strategy: 'REDACT' },
+  { fieldPattern: 'email', strategy: 'PARTIAL_EMAIL' },
+]);
+
+const cleanPayload = masker.mask(upstreamData);
+```
+
+### Schema Traffic Impact Analysis
+
+```typescript
+import { SchemaDiffEngine, SchemaImpactAnalyzer } from '@gqlpulse/core';
 
 const diffEngine = new SchemaDiffEngine();
-const result = diffEngine.diff(schemaV1String, schemaV2String);
+const diffResult = diffEngine.diff(schemaV1, schemaV2);
 
-console.log(`Breaking: ${result.breakingCount}`);
-console.log(`Dangerous: ${result.dangerousCount}`);
-console.log(`Safe: ${result.safeCount}`);
+const impactAnalyzer = new SchemaImpactAnalyzer();
+const clientImpacts = impactAnalyzer.analyzeImpact(diffResult.items, recordedQueries);
 ```
 
 ---
@@ -209,11 +249,11 @@ $$\text{Field Cost} = \text{Base Cost} \times \prod \text{Parent Multipliers}$$
 ```
 gqlpulse/
 ├── packages/
-│   ├── core/         # AST visitor, complexity calculator, profiler, and schema diff engine
-│   ├── proxy/        # Transparent Node.js HTTP reverse proxy and rate limiter
-│   ├── studio/       # React 19 + Tailwind CSS developer telemetry workbench
-│   ├── demo-server/  # E-commerce and blog GraphQL API with intentional N+1 fixtures
-│   └── cli/          # Command-line binary for proxy, lint, diff, and demo
+│   ├── core/         # AST visitor, complexity calculator, profiler, diff engine, masking, impact
+│   ├── proxy/        # Node.js HTTP reverse proxy, APQ engine, rate limiter, Prometheus metrics
+│   ├── studio/       # React 19 + Tailwind CSS developer studio with flamegraphs and simulator
+│   ├── demo-server/  # GraphQL API with intentional N+1 fixtures and deprecation fields
+│   └── cli/          # Command-line binary for proxy, lint, diff, check, and demo
 ├── docs/
 │   ├── images/       # Authentic UI screenshots and animated demo GIF
 │   ├── ARCHITECTURE.md

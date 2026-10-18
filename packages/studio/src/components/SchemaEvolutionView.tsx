@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GitBranch, ShieldAlert, AlertTriangle, CheckCircle2, RefreshCw, Eye, ArrowRight, Ban } from 'lucide-react';
+import { GitBranch, ShieldAlert, AlertTriangle, CheckCircle2, RefreshCw, Eye, ArrowRight, Ban, AlertOctagon } from 'lucide-react';
 import { SchemaDiffResult, DeprecatedFieldUsage } from '../types.js';
 
 export const SchemaEvolutionView: React.FC = () => {
@@ -197,6 +197,74 @@ type Query {
               </table>
             </div>
           </div>
+
+          {/* Real-World Client Traffic Impact Analysis */}
+          {diffResult.impacts && diffResult.impacts.length > 0 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-800 bg-rose-950/30 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <AlertOctagon className="w-4 h-4 text-rose-400" />
+                  <span className="text-xs font-bold font-mono text-rose-200 uppercase">
+                    Client Traffic Impact Correlation (Production Telemetry)
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono text-rose-300">
+                  Cross-referenced against real queries in proxy memory
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-4">Impact Level</th>
+                      <th className="py-2.5 px-4">Schema Path</th>
+                      <th className="py-2.5 px-4">Change Type</th>
+                      <th className="py-2.5 px-4 text-center">Hits in Session</th>
+                      <th className="py-2.5 px-4 text-center">Affected Clients</th>
+                      <th className="py-2.5 px-4">Sample Operations</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 text-slate-300">
+                    {diffResult.impacts.map((imp, idx) => (
+                      <tr key={idx} className="hover:bg-slate-800/40">
+                        <td className="py-2.5 px-4">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                              imp.severity === 'HIGH_IMPACT'
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                                : imp.severity === 'LOW_IMPACT'
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                            }`}
+                          >
+                            {imp.severity}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-cyan-300 font-bold">{imp.schemaPath}</td>
+                        <td className="py-2.5 px-4 text-slate-400">{imp.changeCode}</td>
+                        <td className="py-2.5 px-4 text-center font-bold text-slate-100">
+                          {imp.totalHitsInSession}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <span className="text-rose-400 font-bold">{imp.distinctClientsCount}</span>
+                          {imp.sampleClients.length > 0 && (
+                            <span className="text-slate-500 text-[10px] ml-1">
+                              ({imp.sampleClients.join(', ')})
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-300 truncate max-w-xs">
+                          {imp.sampleOperations.length > 0
+                            ? imp.sampleOperations.join(', ')
+                            : 'Anonymous queries'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

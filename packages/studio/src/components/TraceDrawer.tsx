@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Clock, ShieldAlert, CheckCircle2, Flame, Layers, Code } from 'lucide-react';
+import { X, Copy, Check, Clock, ShieldAlert, CheckCircle2, Flame, Layers, Code, Terminal, Download } from 'lucide-react';
 import { WaterfallTrace, NPlusOneAlert } from '../types.js';
 
 interface TraceDrawerProps {
@@ -14,6 +14,7 @@ export const TraceDrawer: React.FC<TraceDrawerProps> = ({
   onOpenDataLoaderModal,
 }) => {
   const [copiedQuery, setCopiedQuery] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
 
   if (!trace) return null;
 
@@ -21,6 +22,24 @@ export const TraceDrawer: React.FC<TraceDrawerProps> = ({
     navigator.clipboard.writeText(trace.query);
     setCopiedQuery(true);
     setTimeout(() => setCopiedQuery(false), 2000);
+  };
+
+  const handleCopyCurl = () => {
+    const bodyStr = JSON.stringify({ query: trace.query, variables: trace.variables }).replace(/'/g, "'\\''");
+    const curl = `curl -X POST http://localhost:4000/graphql \\\n  -H "Content-Type: application/json" \\\n  -d '${bodyStr}'`;
+    navigator.clipboard.writeText(curl);
+    setCopiedCurl(true);
+    setTimeout(() => setCopiedCurl(false), 2000);
+  };
+
+  const handleDownloadJson = () => {
+    const blob = new Blob([JSON.stringify(trace, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gqlpulse-trace-${trace.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const isBlocked = trace.status === 'BLOCKED';
@@ -207,13 +226,33 @@ export const TraceDrawer: React.FC<TraceDrawerProps> = ({
               <Code className="w-4 h-4 text-slate-400" />
               <span>Query Payload</span>
             </label>
-            <button
-              onClick={handleCopyQuery}
-              className="flex items-center space-x-1.5 px-2 py-1 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-            >
-              {copiedQuery ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedQuery ? 'Copied' : 'Copy Query'}</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleCopyCurl}
+                className="flex items-center space-x-1 px-2 py-1 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 transition"
+                title="Copy as executable cURL command"
+              >
+                {copiedCurl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Terminal className="w-3.5 h-3.5" />}
+                <span>{copiedCurl ? 'Copied' : 'cURL'}</span>
+              </button>
+
+              <button
+                onClick={handleDownloadJson}
+                className="flex items-center space-x-1 px-2 py-1 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                title="Download full trace JSON"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>JSON</span>
+              </button>
+
+              <button
+                onClick={handleCopyQuery}
+                className="flex items-center space-x-1.5 px-2 py-1 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              >
+                {copiedQuery ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedQuery ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
           </div>
           <pre className="bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-300 overflow-x-auto leading-relaxed">
             <code>{trace.query}</code>

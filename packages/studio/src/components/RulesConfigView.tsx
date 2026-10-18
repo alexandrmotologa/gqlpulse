@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Shield, Sliders, Save, Check, RefreshCw, AlertCircle } from 'lucide-react';
-import { QueryComplexityConfig } from '../types.js';
+import { Settings, Shield, Sliders, Save, Check, RefreshCw, AlertCircle, EyeOff, Lock, Trash2, Key } from 'lucide-react';
+import { QueryComplexityConfig, MaskingRule } from '../types.js';
 
 export const RulesConfigView: React.FC = () => {
   const [rules, setRules] = useState<QueryComplexityConfig | null>(null);
@@ -9,6 +9,8 @@ export const RulesConfigView: React.FC = () => {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [newFieldKey, setNewFieldKey] = useState('');
   const [newFieldCost, setNewFieldCost] = useState(10);
+  const [newMaskingPattern, setNewMaskingPattern] = useState('');
+  const [newMaskingStrategy, setNewMaskingStrategy] = useState<'REDACT' | 'PARTIAL_EMAIL' | 'HASH' | 'NULL'>('REDACT');
 
   const fetchRules = async () => {
     try {
@@ -77,6 +79,28 @@ export const RulesConfigView: React.FC = () => {
     setRules({
       ...rules,
       fieldCosts: updated,
+    });
+  };
+
+  const handleAddMaskingRule = () => {
+    if (!newMaskingPattern.trim()) return;
+    const current = rules.maskingRules || [];
+    setRules({
+      ...rules,
+      maskingRules: [
+        ...current,
+        { fieldPattern: newMaskingPattern.trim(), strategy: newMaskingStrategy },
+      ],
+    });
+    setNewMaskingPattern('');
+  };
+
+  const handleRemoveMaskingRule = (idx: number) => {
+    const current = [...(rules.maskingRules || [])];
+    current.splice(idx, 1);
+    setRules({
+      ...rules,
+      maskingRules: current,
     });
   };
 
@@ -285,6 +309,154 @@ export const RulesConfigView: React.FC = () => {
                     <td className="py-2 px-3 text-right">
                       <button
                         onClick={() => handleRemoveFieldOverride(key)}
+                        className="text-rose-400 hover:text-rose-300 text-[11px] transition"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Automated Persisted Queries (APQ) & Safelisting */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Key className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-xs font-bold font-mono text-slate-300 uppercase tracking-wide">
+              Automated Persisted Queries (APQ) & Safelisting
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-400 font-mono">
+            Zero-overhead query hashing
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Allows Apollo and Relay clients to transmit 64-character SHA-256 hashes instead of megabyte-sized query strings, slashing network payload size and protecting execution pipelines.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <label className="flex items-start space-x-3 cursor-pointer bg-slate-950 p-3.5 rounded-lg border border-slate-800 hover:border-slate-700 transition">
+            <input
+              type="checkbox"
+              checked={rules.apq?.enabled ?? true}
+              onChange={(e) =>
+                setRules({
+                  ...rules,
+                  apq: {
+                    enabled: e.target.checked,
+                    strictSafelist: rules.apq?.strictSafelist ?? false,
+                  },
+                })
+              }
+              className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
+            />
+            <div>
+              <span className="text-xs font-semibold text-slate-200 block">Enable APQ Caching</span>
+              <span className="text-[11px] text-slate-400">
+                Resolves sha256 hashes against memory cache before parsing incoming ASTs.
+              </span>
+            </div>
+          </label>
+
+          <label className="flex items-start space-x-3 cursor-pointer bg-slate-950 p-3.5 rounded-lg border border-slate-800 hover:border-slate-700 transition">
+            <input
+              type="checkbox"
+              checked={rules.apq?.strictSafelist ?? false}
+              onChange={(e) =>
+                setRules({
+                  ...rules,
+                  apq: {
+                    enabled: rules.apq?.enabled ?? true,
+                    strictSafelist: e.target.checked,
+                  },
+                })
+              }
+              className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
+            />
+            <div>
+              <span className="text-xs font-semibold text-slate-200 block">Strict Safelist Mode</span>
+              <span className="text-[11px] text-slate-400">
+                Rejects any ad-hoc, unknown query string not pre-registered in the safelist registry.
+              </span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Sensitive Response Field Masking */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <EyeOff className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-xs font-bold font-mono text-slate-300 uppercase tracking-wide">
+              Sensitive Response Field Masking
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-400 font-mono">
+            {(rules.maskingRules || []).length} active masking rules
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Intercepts outbound GraphQL response payloads and masks PII, authentication tokens, or secrets before transmission to client browsers.
+        </p>
+
+        {/* Add Masking Rule Input Row */}
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            value={newMaskingPattern}
+            onChange={(e) => setNewMaskingPattern(e.target.value)}
+            placeholder="Field pattern (e.g. legacyToken, password, *secret*)"
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+          />
+          <select
+            value={newMaskingStrategy}
+            onChange={(e) => setNewMaskingStrategy(e.target.value as any)}
+            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500"
+          >
+            <option value="REDACT">REDACT ([REDACTED])</option>
+            <option value="PARTIAL_EMAIL">PARTIAL_EMAIL (a***@domain.com)</option>
+            <option value="HASH">HASH (SHA-256)</option>
+            <option value="NULL">NULL (null)</option>
+          </select>
+          <button
+            onClick={handleAddMaskingRule}
+            className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-mono font-medium rounded-lg text-slate-200 transition"
+          >
+            Add Rule
+          </button>
+        </div>
+
+        {/* Rules Table */}
+        {rules.maskingRules && rules.maskingRules.length > 0 && (
+          <div className="border border-slate-800 rounded-lg overflow-hidden">
+            <table className="w-full text-left text-xs font-mono">
+              <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th className="py-2 px-3">Field Pattern</th>
+                  <th className="py-2 px-3">Masking Strategy</th>
+                  <th className="py-2 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 text-slate-300">
+                {rules.maskingRules.map((rule, idx) => (
+                  <tr key={idx} className="hover:bg-slate-800/30">
+                    <td className="py-2 px-3 text-cyan-300 font-semibold">{rule.fieldPattern}</td>
+                    <td className="py-2 px-3 text-slate-400">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        {rule.strategy}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      <button
+                        onClick={() => handleRemoveMaskingRule(idx)}
                         className="text-rose-400 hover:text-rose-300 text-[11px] transition"
                       >
                         Remove
